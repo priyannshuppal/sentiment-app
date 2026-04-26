@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tweet Sentiment Analyzer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 40px;
+      width: 100%;
+      max-width: 560px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: #1d9bf0;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-icon svg { width: 20px; height: 20px; fill: #fff; }
+
+    .logo h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .logo span {
+      font-size: 13px;
+      color: #64748b;
+      margin-top: 1px;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 8px;
+    }
+
+    textarea {
+      width: 100%;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 15px;
+      font-family: inherit;
+      color: #0f172a;
+      resize: vertical;
+      min-height: 120px;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+
+    textarea:focus { border-color: #1d9bf0; }
+    textarea::placeholder { color: #94a3b8; }
+
+    .char-count {
+      text-align: right;
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 6px;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 16px;
+      padding: 14px;
+      background: #1d9bf0;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    button:hover { background: #1a8cd8; }
+    button:active { transform: scale(0.98); }
+    button:disabled { background: #93c5fd; cursor: not-allowed; transform: none; }
+
+    .spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 2.5px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .result {
+      margin-top: 24px;
+      border-radius: 14px;
+      padding: 20px 24px;
+      display: none;
+      animation: fadeUp 0.3s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .result.positive { background: #f0fdf4; border: 1.5px solid #86efac; }
+    .result.negative { background: #fff1f2; border: 1.5px solid #fca5a5; }
+    .result.error    { background: #fff7ed; border: 1.5px solid #fdba74; }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .result-emoji { font-size: 28px; line-height: 1; }
+
+    .result-label {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .positive .result-label { color: #15803d; }
+    .negative .result-label { color: #b91c1c; }
+    .error    .result-label { color: #c2410c; }
+
+    .confidence-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .confidence-bar-bg {
+      flex: 1;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .confidence-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.6s ease;
+    }
+
+    .positive .confidence-bar-fill { background: #22c55e; }
+    .negative .confidence-bar-fill { background: #ef4444; }
+
+    .confidence-pct {
+      font-size: 13px;
+      font-weight: 600;
+      min-width: 42px;
+      text-align: right;
+    }
+
+    .positive .confidence-pct { color: #15803d; }
+    .negative .confidence-pct { color: #b91c1c; }
+
+    .examples {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid #f1f5f9;
+    }
+
+    .examples p {
+      font-size: 12px;
+      font-weight: 500;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+    }
+
+    .example-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 99px;
+      border: 1.5px solid #e2e8f0;
+      font-size: 13px;
+      color: #374151;
+      cursor: pointer;
+      background: #f8fafc;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .chip:hover { border-color: #1d9bf0; background: #eff8ff; color: #1d9bf0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      </div>
+      <div>
+        <h1>Sentiment Analyzer</h1>
+        <span>Powered by Logistic Regression · Sentiment140</span>
+      </div>
+    </div>
+
+    <label for="tweet-input">Enter a tweet or sentence</label>
+    <textarea
+      id="tweet-input"
+      placeholder="e.g. I love this sunny day, feeling amazing!"
+      maxlength="280"
+      oninput="updateCount()"
+    ></textarea>
+    <div class="char-count"><span id="char-count">0</span> / 280</div>
+
+    <button id="analyze-btn" onclick="analyze()">
+      <span id="btn-text">Analyze Sentiment</span>
+      <div class="spinner" id="spinner"></div>
+    </button>
+
+    <div class="result" id="result">
+      <div class="result-header">
+        <div class="result-emoji" id="result-emoji"></div>
+        <div class="result-label" id="result-label"></div>
+      </div>
+      <div class="confidence-row">
+        <div class="confidence-bar-bg">
+          <div class="confidence-bar-fill" id="conf-bar" style="width:0%"></div>
+        </div>
+        <div class="confidence-pct" id="conf-pct"></div>
+      </div>
+    </div>
+
+    <div class="examples">
+      <p>Try an example</p>
+      <div class="example-chips">
+        <div class="chip" onclick="setExample(this)">I love this! 🎉</div>
+        <div class="chip" onclick="setExample(this)">This is the worst day ever</div>
+        <div class="chip" onclick="setExample(this)">Just had amazing coffee</div>
+        <div class="chip" onclick="setExample(this)">I'm so tired of everything</div>
+        <div class="chip" onclick="setExample(this)">Great job team!</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 🔧 Change this to your Render API URL after deployment
+    const API_URL = 'http://localhost:5000';
+
+    function updateCount() {
+      const len = document.getElementById('tweet-input').value.length;
+      document.getElementById('char-count').textContent = len;
+    }
+
+    function setExample(el) {
+      document.getElementById('tweet-input').value = el.textContent;
+      updateCount();
+      analyze();
+    }
+
+    async function analyze() {
+      const text = document.getElementById('tweet-input').value.trim();
+      if (!text) return;
+
+      const btn = document.getElementById('analyze-btn');
+      const spinner = document.getElementById('spinner');
+      const btnText = document.getElementById('btn-text');
+      const resultDiv = document.getElementById('result');
+
+      btn.disabled = true;
+      btnText.style.display = 'none';
+      spinner.style.display = 'block';
+      resultDiv.style.display = 'none';
+
+      try {
+        const res = await fetch(`${API_URL}/predict`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+
+        const data = await res.json();
+
+        if (data.error) throw new Error(data.error);
+
+        const isPositive = data.label === 1;
+        resultDiv.className = `result ${isPositive ? 'positive' : 'negative'}`;
+        document.getElementById('result-emoji').textContent = isPositive ? '😊' : '😔';
+        document.getElementById('result-label').textContent = data.sentiment;
+        document.getElementById('conf-bar').style.width = data.confidence + '%';
+        document.getElementById('conf-pct').textContent = data.confidence + '%';
+
+      } catch (err) {
+        resultDiv.className = 'result error';
+        document.getElementById('result-emoji').textContent = '⚠️';
+        document.getElementById('result-label').textContent = 'Could not connect to API';
+        document.getElementById('conf-bar').style.width = '0%';
+        document.getElementById('conf-pct').textContent = '';
+      }
+
+      resultDiv.style.display = 'block';
+      btn.disabled = false;
+      btnText.style.display = 'block';
+      spinner.style.display = 'none';
+    }
+
+    document.getElementById('tweet-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); analyze(); }
+    });
+  </script>
+</body>
+</html>
